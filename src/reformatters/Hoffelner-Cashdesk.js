@@ -44,6 +44,46 @@ function reformat(input) {
 		p.id = p.lines[0].match(/([^"]*;)+"\s*(#\d+ \d+ \d+)/)[2];
 		if (p.isBulletin) {
 			bulletin = p;
+			p.counter = p.lines[4].match(/([^"]*;)+"\s*Z[^\d]*([^"]*)"/);
+			p.quantity = p.lines[5].match(/([^"]*;)+"\s*A[^\d]*([^"]*)"/);
+			p.price = p.lines[6].match(/([^"]*;)+"\s*B[^\d]*([^"]*)"/);
+			if (p.counter && p.quantity && p.price) {
+				p.counter = p.counter[2];
+				p.quantity = p.quantity[2];
+				p.price = p.price[2];
+			} else {
+				throw 'Bulletin not parsable: ' + JSON.stringify(p, null, 2);
+			}
+			
+			// parse products
+			p.products = [];
+			var taxesStartIndex = -1;
+			for (var i = 8; i < p.lines.length; i++) {
+				if (p.lines[i].indexOf('Steuern') > -1) {
+					taxesStartIndex = i;
+					break;
+				}
+			}
+			for (var i = 8; i < taxesStartIndex; i+=4) {
+				var product = {
+					'id': p.lines[i].match(/([^"]*;)+"\s*(#\d+)/)[2],
+					'name': p.lines[i+1].match(/([^"]*;)+"\s*([^"]*?)\s*"/)[2],
+					'quantity': p.lines[i+2].match(/([^"]*;)+"\s*A[^ ]+ +([^"]*)"/)[2],
+					'price': p.lines[i+3].match(/([^"]*;)+"\s*B[^ ]+ +([^"]*)"/)[2]
+				};
+				p.products.push(product);
+			}
+			var paymentMethodsStartIndex = -1;
+			for (var i = taxesStartIndex; i < p.lines.length; i++) {
+				if (p.lines[i].indexOf('Zahlungsarten') > -1) {
+					paymentMethodsStartIndex = i;
+					break;
+				}
+			}
+			p.taxes = {};
+			for (var i = taxesStartIndex + 1; i < paymentMethodsStartIndex; i+=4) {
+				p.taxes[p.lines[i].match(/([^"]*;)+"\s*MwSt\s*([^"]*?)\s*"/)[2]] = p.lines[i+3].match(/([^"]*;)+"\s*MwSt\s*([^"]*)"/)[2];
+			}
 		} else {
 			p.products = [];
 			// parse products
@@ -70,11 +110,11 @@ function reformat(input) {
 			p.summary = parseProductLine(p.lines[summaryStartIndex]);
 			delete p.summary.name;
 			delete p.summary.note;
-			p.summary.vats = {};
+			p.summary.taxes = {};
 			for (var i = summaryStartIndex + 1; i < p.lines.length; i++) {
 				var match = p.lines[i].match(/([^"]*;)+"\s+MwSt\s*(\d+%)\s*(-?\d+\.\d+)/);
 				if (match) {
-					p.summary.vats[match[2]] = match[3];
+					p.summary.taxes[match[2]] = match[3];
 				}
 			}
 		}
