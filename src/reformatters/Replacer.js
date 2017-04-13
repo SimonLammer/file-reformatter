@@ -3,7 +3,8 @@ onmessage = function(e) {
 	var args = e.data;
 
 	var results = input.map(function(i) {
-		return i.replace(args[0], args[1]);
+		i.content = i.content.replace(args[0], args[1]);
+		return i;
 	});
 
 	postMessage(results);
