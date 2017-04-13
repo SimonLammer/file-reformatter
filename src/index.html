@@ -22,7 +22,10 @@
 			if (!window.Worker) {
 				alert('This website can not be used, because your browser does not support the Worker api!');
 			} else {
-var reformatters = [new Reformatter('Replacer', ['replace', 'with'])];
+var reformatters = [
+	new Reformatter('Replacer', ['replace', 'with']),
+	new Reformatter('Hoffelner-Cashdesk', [])
+];
 reformatters.forEach(function(r) {
 	reformatters[r.name] = r;
 });
