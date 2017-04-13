@@ -5,6 +5,7 @@
 	</head>
 	<body>
 		<div id="inputs">
+			Inputs: <input type="file" id="inputfiles" multiple /> <br/>
 			<select id="reformatter">
 				<!-- options will be generated via javascript -->
 			</select>
@@ -42,7 +43,6 @@ $(document).ready(function() {
 		$('#submit').attr('disabled', selectedReformatter === null);
 		if (selectedReformatter) {
 			$('#arguments').html(
-				'Input: <input type="text" />' + 
 				selectedReformatter.argumentNames.map(function(a, i) {
 					return a + ': <input type="text" />';
 				})
@@ -53,11 +53,28 @@ $(document).ready(function() {
 	});
 	
 	$('#submit').click(function() {
-		var args = [];
-		$('#arguments input').each(function(i, e) {
-			args[i] = $(e).val();
-		});
-		selectedReformatter.reformat(args);
+		var inputFiles = $('#inputfiles')[0].files;
+		var fileContents = [];
+		var finished = [];
+		for (var i = 0; i < inputFiles.length; i++) {
+			(function(index) {
+				finished[index] = false;
+				var reader = new FileReader();
+				reader.onload = function(e) {
+					fileContents[index] = reader.result;
+					finished[index] = true;
+					if (finished.indexOf(false) == -1) { // all files read
+						var args = [fileContents];
+						$('#arguments input').each(function(i, e) {
+							args.push($(e).val());
+						});
+						console.log(fileContents, args);
+						selectedReformatter.reformat(args);
+					}
+				}
+				reader.readAsText(inputFiles[index]);
+			})(i);
+		};
 	});
 });
 
@@ -70,6 +87,7 @@ Reformatter.prototype.reformat = function(args) {
 	if (this.worker === null) {
 		this.worker = new Worker('reformatters/' + this.name + '.js');
 		this.worker.onmessage = function(e) {
+			console.log('refactored: ', e.data);
 			$('#result').val(e.data);
 		};
 	}
