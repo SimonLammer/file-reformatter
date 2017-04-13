@@ -1,0 +1,7 @@
+main:
+  build: .
+  ports:
+   - "8005:8080"
+  volumes:
+   - handlers:/handlers
+   - src:/code
