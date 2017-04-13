@@ -1,1 +1,68 @@
-Hello World!
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>File reformatter</title>
+	</head>
+	<body>
+		<div id="inputs">
+			<select id="reformatter">
+				<!-- options will be generated via javascript -->
+			</select>
+			<div id="arguments">
+				<!-- arguments will be generated via javascript -->
+			</div>
+			<button id="submit" disabled="disabled">Reformat</button>
+		</div>
+		<script
+			src="https://code.jquery.com/jquery-3.2.1.min.js"
+			integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+			crossorigin="anonymous"></script>
+		<script type="text/javascript">
+			if (!window.Worker) {
+				alert('This website can not be used, because your browser does not support the Worker api!');
+			} else {
+var reformatters = [new Reformatter('Test', ['A', 'B'])];
+reformatters.forEach(function(r) {
+	reformatters[r.name] = r;
+});
+var selectedReformatter = null;
+
+$(document).ready(function() {
+	$('#reformatter').html(
+		'<option value="">-----</option>' + 
+		reformatters
+			.map(function(r) { 
+				return '<option value="' + r.name + '">' + r.name + '</option>';
+			})
+			.join("\n")
+	).change(function(e) {
+		var selectedReformatterName = $(e.target).val();
+		selectedReformatter = selectedReformatterName === '' ? null : reformatters[selectedReformatterName];
+		$('#submit').attr('disabled', selectedReformatter === null);
+		if (selectedReformatter) {
+			$('#arguments').html(
+				selectedReformatter.argumentNames.map(function(a, i) {
+					return a + ': <input type="text" id="arg-' + i + '" />';
+				})
+			);
+		} else {
+			$('#arguments').html('');
+		}
+	});
+	
+	$('#submit').click(function() {
+		var args = $('#arguments input').map(function(i, e) {
+			return $(e).val();
+		});
+		console.log(selectedReformatter.name, args);
+	});
+});
+
+function Reformatter(name, argumentNames) {
+	this.name = name;
+	this.argumentNames = argumentNames;
+}
+			}
+		</script>
+	</body>
+</html>
