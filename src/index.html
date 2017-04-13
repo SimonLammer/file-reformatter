@@ -13,6 +13,7 @@
 			</div>
 			<button id="submit" disabled="disabled">Reformat</button>
 		</div>
+		<input type="text" id="result" />
 		<script
 			src="https://code.jquery.com/jquery-3.2.1.min.js"
 			integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
@@ -21,7 +22,7 @@
 			if (!window.Worker) {
 				alert('This website can not be used, because your browser does not support the Worker api!');
 			} else {
-var reformatters = [new Reformatter('Test', ['A', 'B'])];
+var reformatters = [new Reformatter('Replacer', ['replace', 'with'])];
 reformatters.forEach(function(r) {
 	reformatters[r.name] = r;
 });
@@ -41,8 +42,9 @@ $(document).ready(function() {
 		$('#submit').attr('disabled', selectedReformatter === null);
 		if (selectedReformatter) {
 			$('#arguments').html(
+				'Input: <input type="text" />' + 
 				selectedReformatter.argumentNames.map(function(a, i) {
-					return a + ': <input type="text" id="arg-' + i + '" />';
+					return a + ': <input type="text" />';
 				})
 			);
 		} else {
@@ -51,16 +53,27 @@ $(document).ready(function() {
 	});
 	
 	$('#submit').click(function() {
-		var args = $('#arguments input').map(function(i, e) {
-			return $(e).val();
+		var args = [];
+		$('#arguments input').each(function(i, e) {
+			args[i] = $(e).val();
 		});
-		console.log(selectedReformatter.name, args);
+		selectedReformatter.reformat(args);
 	});
 });
 
 function Reformatter(name, argumentNames) {
 	this.name = name;
 	this.argumentNames = argumentNames;
+	this.worker = null;
+}
+Reformatter.prototype.reformat = function(args) {
+	if (this.worker === null) {
+		this.worker = new Worker('reformatters/' + this.name + '.js');
+		this.worker.onmessage = function(e) {
+			$('#result').val(e.data);
+		};
+	}
+	this.worker.postMessage(args);
 }
 			}
 		</script>
