@@ -73,6 +73,7 @@ function reformat(input) {
 					'quantity': p.lines[i+2].match(/([^"]*;)+"\s*A[^ ]+ +([^"]*)"/)[2],
 					'price': p.lines[i+3].match(/([^"]*;)+"\s*B[^ ]+ +([^"]*)"/)[2]
 				};
+				product.number = parseInt(product.id.substr(1));
 				p.products.push(product);
 			}
 			var paymentMethodsStartIndex = -1;
@@ -191,8 +192,10 @@ function reformat(input) {
 			}
 		}
 	});
-
-	return JSON.stringify(purchases, null, 2);
+	
+	//return JSON.stringify(bulletin, null, 2);
+	
+	return createResultCsv(purchases, bulletin);
 }
 
 function parseProductLine(line) {
@@ -207,6 +210,76 @@ function parseProductLine(line) {
 	} else {
 		return false;
 	}
+}
+
+function createResultCsv(purchases, bulletin) {
+	csv = 'RechnungsNr;Tag;Monat;Jahr;Stunde;Minute;Gesamtpreis;';
+	for (var tax in bulletin.summary.taxes) {
+		csv += tax + ' MwSt Anteil' + ';';
+	}
+	var productNumber = 1;
+	csv += bulletin.products.map(function(p) {
+		var tmp = '';
+		while (productNumber < p.number) {
+			tmp += 'Produkt' + productNumber + ' Menge;Produkt' + productNumber + ' Preis;';
+			productNumber++;
+		}
+		tmp += p.name + ' Menge;' + p.name + ' Preis';
+		return tmp;
+	}).join(';');
+	
+	purchases.forEach(function(purchase) {
+		csv += '\n';
+		csv += [purchase.id, purchase.day, purchase.month, purchase.year, purchase.hour, purchase.minute, purchase.summary.price].join(';');
+		for (var tax in bulletin.summary.taxes) {
+			csv += ';';
+			if (purchase.summary.taxes[tax] != undefined) {
+				csv += purchase.summary.taxes[tax];
+			} else {
+				csv += '0';
+			}
+		}
+		csv += ';';
+		productNumber = 1;
+		csv += bulletin.products.map(function(p) {
+			var tmp = '';
+			while (productNumber < p.number) {
+				tmp += '0;0;';
+				productNumber++;
+			}
+			var containsProduct = false;
+			for (var i = 0; i < purchase.products.length; i++) {
+				if (p.name === purchase.products[i].name) {
+					containsProduct = true;
+					tmp += [purchase.products[i].quantity, purchase.products[i].price].join(';');
+					break;
+				}
+			}
+			if (!containsProduct) {
+				tmp += '0;0';
+			}
+			return tmp;
+		}).join(';');
+	});
+
+	csv += '\nTagesbericht ';
+	csv += [bulletin.id, bulletin.day, bulletin.month, bulletin.year, bulletin.hour, bulletin.minute, bulletin.summary.price].join(';');
+	for (var tax in bulletin.summary.taxes) {
+		csv += ';' + bulletin.summary.taxes[tax];
+	}
+	csv += ';';
+	var productNumber = 1;
+	csv += bulletin.products.map(function(p) {
+		var tmp = '';
+		while (productNumber < p.number) {
+			tmp += '0;0;';
+			productNumber++;
+		}
+		tmp += p.quantity + ';' + p.price;
+		return tmp;
+	}).join(';');
+	
+	return csv;
 }
 
 onmessage = function(e) {
