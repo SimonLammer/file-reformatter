@@ -44,13 +44,15 @@ function reformat(input) {
 		p.id = p.lines[0].match(/([^"]*;)+"\s*(#\d+ \d+ \d+)/)[2];
 		if (p.isBulletin) {
 			bulletin = p;
-			p.counter = p.lines[4].match(/([^"]*;)+"\s*Z[^\d]*([^"]*)"/);
-			p.quantity = p.lines[5].match(/([^"]*;)+"\s*A[^\d]*([^"]*)"/);
-			p.price = p.lines[6].match(/([^"]*;)+"\s*B[^\d]*([^"]*)"/);
-			if (p.counter && p.quantity && p.price) {
-				p.counter = p.counter[2];
-				p.quantity = p.quantity[2];
-				p.price = p.price[2];
+			p.summary = {
+				'counter': p.lines[4].match(/([^"]*;)+"\s*Z[^\d]*([^"]*)"/),
+				'quantity': p.lines[5].match(/([^"]*;)+"\s*A[^\d]*([^"]*)"/),
+				'price': p.lines[6].match(/([^"]*;)+"\s*B[^\d]*([^"]*)"/)
+			};
+			if (p.summary.counter && p.summary.quantity && p.summary.price) {
+				p.summary.counter = p.summary.counter[2];
+				p.summary.quantity = p.summary.quantity[2];
+				p.summary.price = p.summary.price[2];
 			} else {
 				throw 'Bulletin not parsable: ' + JSON.stringify(p, null, 2);
 			}
@@ -80,9 +82,9 @@ function reformat(input) {
 					break;
 				}
 			}
-			p.taxes = {};
+			p.summary.taxes = {};
 			for (var i = taxesStartIndex + 1; i < paymentMethodsStartIndex; i+=4) {
-				p.taxes[p.lines[i].match(/([^"]*;)+"\s*MwSt\s*([^"]*?)\s*"/)[2]] = p.lines[i+3].match(/([^"]*;)+"\s*MwSt\s*([^"]*)"/)[2];
+				p.summary.taxes[p.lines[i].match(/([^"]*;)+"\s*MwSt\s*([^"]*?)\s*"/)[2]] = p.lines[i+3].match(/([^"]*;)+"\s*MwSt\s*([^"]*)"/)[2];
 			}
 		} else {
 			p.products = [];
@@ -119,6 +121,75 @@ function reformat(input) {
 			}
 		}
 		return p;
+	});
+
+	// remove invalid purchases
+	purchases = purchases.filter(function(p) {
+		return p != false;
+	});
+
+	// parse numbers
+	purchases.forEach(function(purchase) {
+		purchase.products.forEach(function(product) {
+			product.price = parseFloat(product.price.replace(/,/g, ''));
+			product.quantity = parseFloat(product.quantity.replace(/,/g, ''));
+		});
+		purchase.summary.quantity = parseInt(purchase.summary.quantity);
+		purchase.summary.price = parseFloat(purchase.summary.price.replace(/,/g, ''));
+		for (var tax in purchase.summary.taxes) {
+			purchase.summary.taxes[tax] = parseFloat(purchase.summary.taxes[tax].replace(/,/g, ''));
+		}
+	});
+
+	// remove bulletin
+	purchases = purchases.filter(function(p) {
+		return !p.isBulletin;
+	});
+
+	// update product names of purchases
+	purchases.forEach(function(purchase) {
+		purchase.products.forEach(function(product) {
+			var possibleProducts = [];
+			bulletin.products.forEach(function(p) {
+				if (p.name.indexOf(product.name) > -1) {
+					possibleProducts.push(p);
+				}
+			});
+			if (possibleProducts.length === 0) {
+				throw 'No product name matched "' + product.name + '"!';
+			} else if (possibleProducts.length === 1) {
+				product.name = possibleProducts[0].name;
+			} else {
+				var pricePerQuantity = product.price / product.quantity;
+				var minDelta = Number.POSITIVE_INFINITY;
+				var prod = null;
+				possibleProducts.forEach(function(p) {
+					var delta = Math.abs(pricePerQuantity - p.price / p.quantity);
+					if (delta < minDelta) {
+						minDelta = delta;
+						prod = p;
+					}
+				});
+				product.name = prod.name;
+			}
+		});
+	});
+	
+	// combine equal products of purchases
+	var productCombinations = 0;
+	purchases.forEach(function(purchase) {
+		for (var i = 0; i < purchase.products.length; i++) {
+			for (var j = i + 1; j < purchase.products.length; j++) {
+				if (purchase.products[i].name === purchase.products[j].name) {
+					productCombinations++;
+					var p = purchase.products.splice(j, 1)[0];
+					purchase.products[i].price += p.price;
+					purchase.products[i].quantity += p.quantity;
+					purchase.products[i].note = 'Kombiniert';
+					j--;
+				}
+			}
+		}
 	});
 
 	return JSON.stringify(purchases, null, 2);
