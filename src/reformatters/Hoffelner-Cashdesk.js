@@ -192,6 +192,11 @@ function parseCashdeskLog(productList, taxList, input) {
 			}
 		}
 	});
+
+	// update bulletin product names
+	bulletin.products.forEach(function(product) {
+		product.name = productList[product.number].name;
+	});
 	
 	return {
 		'bulletin': bulletin,
@@ -224,8 +229,8 @@ function createCsvHeader(productList, taxList) {
 	return csv;
 }
 
-function createCsv(productList, taxList, items) {
-	var csv = createCsvHeader(productList, taxList);
+function createCsv(productList, taxList, decimalMark, items) {
+	var csv = '';
 	items.forEach(function(item) {
 		csv += '\n';
 		csv += [item.id, item.day, item.month, item.year, item.hour, item.minute, item.summary.price].join(';');
@@ -252,7 +257,7 @@ function createCsv(productList, taxList, items) {
 			}
 		}
 	});
-	return csv;
+	return createCsvHeader(productList, taxList) + csv.replace(/\./g, decimalMark);
 }
 
 function readProductList(input) {
@@ -302,10 +307,10 @@ onmessage = function(e) {
 
 	var result = [{
 		'name': 'Einkäufe.csv',
-		'content': createCsv(productList, taxList, purchases)
+		'content': createCsv(productList, taxList, args[0], purchases)
 	}, {
 		'name': 'Tagesberichte.csv',
-		'content': createCsv(productList, taxList, bulletins)
+		'content': createCsv(productList, taxList, args[0], bulletins)
 	}];
 
 	postMessage(result);
