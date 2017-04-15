@@ -159,7 +159,7 @@ function parseCashdeskLog(productList, taxList, input) {
 			if (possibleProducts.length === 0) {
 				throw 'No product name matched "' + product.name + '"!';
 			} else if (possibleProducts.length === 1) {
-				product.name = possibleProducts[0].name;
+				product.name = productList[possibleProducts[0].number].name;
 			} else {
 				var pricePerQuantity = product.price / product.quantity;
 				var minDelta = Number.POSITIVE_INFINITY;
@@ -171,7 +171,7 @@ function parseCashdeskLog(productList, taxList, input) {
 						prod = p;
 					}
 				});
-				product.name = prod.name;
+				product.name = productList[prod.number].name;
 			}
 		});
 	});
@@ -214,13 +214,13 @@ function parseProductLine(line) {
 }
 
 function createCsvHeader(productList, taxList) {
-	var csv = 'RechnungsNr;Tag;Monat;Jahr;Stunde;Minute;Gesamtpreis;';
+	var csv = 'RechnungsNr;Tag;Monat;Jahr;Stunde;Minute;Gesamtpreis';
 	taxList.forEach(function(tax) {
-		csv += tax + ' MwSt Anteil' + ';';
+		csv += ';' + tax + ' MwSt Anteil';
 	});
-	csv += productList.map(function(p) {
-		return p.name + ' Menge;' + p.name + ' Preis';
-	}).join(';');
+	for (var i in productList) {
+		csv += ';' + productList[i].name + ' Menge;' + productList[i].name + ' Preis';
+	};
 	return csv;
 }
 
@@ -237,40 +237,20 @@ function createCsv(productList, taxList, items) {
 				csv += '0';
 			}
 		});
-		csv += ';';
-		csv += productList.map(function(p) {
-			for (var i = 0; i < item.products.length; i++) {
-				if (p.name === item.products[i].name) {
-					return [item.products[i].quantity, item.products[i].price].join(';');
-				}
-			}
-			return '0;0';
-		}).join(';');
-	});
-	return csv;
-}
-function createBulletinsCsv(productList, taxList, bulletins) {
-	var csv = createCsvHeader(productList, taxList);
-	bulletins.forEach(function(bulletin) {
-		csv += '\nTagesbericht ';
-		csv += [bulletin.id, bulletin.day, bulletin.month, bulletin.year, bulletin.hour, bulletin.minute, bulletin.summary.price].join(';');
-		taxList.forEach(function(tax) {
+		for (var pIndex in productList) {
 			csv += ';';
-			if (bulletin.summary.taxes[tax] != undefined) {
-				csv += bulletin.summary.taxes[tax];
-			} else {
-				csv += '0';
-			}
-		});
-		csv += ';';
-		csv += productList.map(function(p) {
-			for (var i = 0; i < bulletin.products.length; i++) {
-				if (p.name === bulletin.products[i].name) {
-					return [bulletin.products[i].quantity, bulletin.products[i].price].join(';');
+			var hasProduct = false;
+			for (var i = 0; i < item.products.length; i++) {
+				if (productList[pIndex].name === item.products[i].name) {
+					csv += [item.products[i].quantity, item.products[i].price].join(';');
+					hasProduct = true;
+					break;
 				}
 			}
-			return '0;0';
-		}).join(';');
+			if (!hasProduct) {
+				csv += '0;0';
+			}
+		}
 	});
 	return csv;
 }
@@ -280,10 +260,11 @@ function readProductList(input) {
 	var productList = [];
 	for (var i = 1; i < lines.length; i++) {
 		var spl = lines[i].split(';');
-		productList.push({
+		var product = {
 			'number': parseFloat(spl[0].trim()),
 			'name': spl[1].trim()
-		});
+		};
+		productList[product.number] = product;
 	}
 	return productList;
 }
