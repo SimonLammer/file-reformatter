@@ -224,24 +224,24 @@ function createCsvHeader(productList, taxList) {
 	return csv;
 }
 
-function createPurchasesCsv(productList, taxList, purchases) {
+function createCsv(productList, taxList, items) {
 	var csv = createCsvHeader(productList, taxList);
-	purchases.forEach(function(purchase) {
+	items.forEach(function(item) {
 		csv += '\n';
-		csv += [purchase.id, purchase.day, purchase.month, purchase.year, purchase.hour, purchase.minute, purchase.summary.price].join(';');
+		csv += [item.id, item.day, item.month, item.year, item.hour, item.minute, item.summary.price].join(';');
 		taxList.forEach(function(tax) {
 			csv += ';';
-			if (purchase.summary.taxes[tax] != undefined) {
-				csv += purchase.summary.taxes[tax];
+			if (item.summary.taxes[tax] != undefined) {
+				csv += item.summary.taxes[tax];
 			} else {
 				csv += '0';
 			}
 		});
 		csv += ';';
 		csv += productList.map(function(p) {
-			for (var i = 0; i < purchase.products.length; i++) {
-				if (p.name === purchase.products[i].name) {
-					return [purchase.products[i].quantity, purchase.products[i].price].join(';');
+			for (var i = 0; i < item.products.length; i++) {
+				if (p.name === item.products[i].name) {
+					return [item.products[i].quantity, item.products[i].price].join(';');
 				}
 			}
 			return '0;0';
@@ -321,10 +321,10 @@ onmessage = function(e) {
 
 	var result = [{
 		'name': 'Einkäufe.csv',
-		'content': createPurchasesCsv(productList, taxList, purchases)
+		'content': createCsv(productList, taxList, purchases)
 	}, {
 		'name': 'Tagesberichte.csv',
-		'content': createBulletinsCsv(productList, taxList, bulletins)
+		'content': createCsv(productList, taxList, bulletins)
 	}];
 
 	postMessage(result);
