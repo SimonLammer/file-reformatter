@@ -126,7 +126,7 @@ function parseCashdeskLog(productList, taxList, input) {
 
 	// remove invalid purchases
 	purchases = purchases.filter(function(p) {
-		return p != false;
+		return p != false && p.products.length > 0;
 	});
 
 	// parse numbers
