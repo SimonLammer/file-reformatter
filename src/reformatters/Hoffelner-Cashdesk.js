@@ -1,4 +1,4 @@
-function reformat(input) {
+function parseCashdeskLog(productList, taxList, input) {
 	//split input into purchases
 	var purchases = [];
 	var purchase = null;
@@ -193,9 +193,10 @@ function reformat(input) {
 		}
 	});
 	
-	//return JSON.stringify(bulletin, null, 2);
-	
-	return createResultCsv(purchases, bulletin);
+	return {
+		'bulletin': bulletin,
+		'purchases': purchases
+	};
 }
 
 function parseProductLine(line) {
@@ -212,84 +213,124 @@ function parseProductLine(line) {
 	}
 }
 
-function createResultCsv(purchases, bulletin) {
-	csv = 'RechnungsNr;Tag;Monat;Jahr;Stunde;Minute;Gesamtpreis;';
-	for (var tax in bulletin.summary.taxes) {
+function createCsvHeader(productList, taxList) {
+	var csv = 'RechnungsNr;Tag;Monat;Jahr;Stunde;Minute;Gesamtpreis;';
+	taxList.forEach(function(tax) {
 		csv += tax + ' MwSt Anteil' + ';';
-	}
-	var productNumber = 1;
-	csv += bulletin.products.map(function(p) {
-		var tmp = '';
-		while (productNumber < p.number) {
-			tmp += 'Produkt' + productNumber + ' Menge;Produkt' + productNumber + ' Preis;';
-			productNumber++;
-		}
-		tmp += p.name + ' Menge;' + p.name + ' Preis';
-		return tmp;
+	});
+	csv += productList.map(function(p) {
+		return p.name + ' Menge;' + p.name + ' Preis';
 	}).join(';');
-	
+	return csv;
+}
+
+function createPurchasesCsv(productList, taxList, purchases) {
+	var csv = createCsvHeader(productList, taxList);
 	purchases.forEach(function(purchase) {
 		csv += '\n';
 		csv += [purchase.id, purchase.day, purchase.month, purchase.year, purchase.hour, purchase.minute, purchase.summary.price].join(';');
-		for (var tax in bulletin.summary.taxes) {
+		taxList.forEach(function(tax) {
 			csv += ';';
 			if (purchase.summary.taxes[tax] != undefined) {
 				csv += purchase.summary.taxes[tax];
 			} else {
 				csv += '0';
 			}
-		}
+		});
 		csv += ';';
-		productNumber = 1;
-		csv += bulletin.products.map(function(p) {
-			var tmp = '';
-			while (productNumber < p.number) {
-				tmp += '0;0;';
-				productNumber++;
-			}
-			var containsProduct = false;
+		csv += productList.map(function(p) {
 			for (var i = 0; i < purchase.products.length; i++) {
 				if (p.name === purchase.products[i].name) {
-					containsProduct = true;
-					tmp += [purchase.products[i].quantity, purchase.products[i].price].join(';');
-					break;
+					return [purchase.products[i].quantity, purchase.products[i].price].join(';');
 				}
 			}
-			if (!containsProduct) {
-				tmp += '0;0';
-			}
-			return tmp;
+			return '0;0';
 		}).join(';');
 	});
-
-	csv += '\nTagesbericht ';
-	csv += [bulletin.id, bulletin.day, bulletin.month, bulletin.year, bulletin.hour, bulletin.minute, bulletin.summary.price].join(';');
-	for (var tax in bulletin.summary.taxes) {
-		csv += ';' + bulletin.summary.taxes[tax];
-	}
-	csv += ';';
-	var productNumber = 1;
-	csv += bulletin.products.map(function(p) {
-		var tmp = '';
-		while (productNumber < p.number) {
-			tmp += '0;0;';
-			productNumber++;
-		}
-		tmp += p.quantity + ';' + p.price;
-		return tmp;
-	}).join(';');
-	
 	return csv;
+}
+function createBulletinsCsv(productList, taxList, bulletins) {
+	var csv = createCsvHeader(productList, taxList);
+	bulletins.forEach(function(bulletin) {
+		csv += '\nTagesbericht ';
+		csv += [bulletin.id, bulletin.day, bulletin.month, bulletin.year, bulletin.hour, bulletin.minute, bulletin.summary.price].join(';');
+		taxList.forEach(function(tax) {
+			csv += ';';
+			if (bulletin.summary.taxes[tax] != undefined) {
+				csv += bulletin.summary.taxes[tax];
+			} else {
+				csv += '0';
+			}
+		});
+		csv += ';';
+		csv += productList.map(function(p) {
+			for (var i = 0; i < bulletin.products.length; i++) {
+				if (p.name === bulletin.products[i].name) {
+					return [bulletin.products[i].quantity, bulletin.products[i].price].join(';');
+				}
+			}
+			return '0;0';
+		}).join(';');
+	});
+	return csv;
+}
+
+function readProductList(input) {
+	var lines = input.split('\n');
+	var productList = [];
+	for (var i = 1; i < lines.length; i++) {
+		var spl = lines[i].split(';');
+		productList.push({
+			'number': parseFloat(spl[0].trim()),
+			'name': spl[1].trim()
+		});
+	}
+	return productList;
 }
 
 onmessage = function(e) {
 	var input = e.data.splice(0, 1)[0];
 	var args = e.data;
 
-	var results = input.map(function(i) {
-		i.content = reformat(i.content);
-		return i;
+	var productList = null;
+	var taxList = null;
+	for (var i = 0; i < input.length && (productList == null || taxList == null); i++) {
+		if (input[i].name == args[1]) { // i is product-list
+			productList = input.splice(i, 1)[0];
+			productList = readProductList(productList.content);
+			i--;
+		} else if (input[i].name == args[2]) { // i is tax-list
+			taxList = input.splice(i, 1)[0];
+			taxList = taxList.content.split(';');
+			i--;
+		}
+	}
+	if (productList == null) {
+		throw 'Product list not found in input files!';
+	} else if (taxList == null) {
+		throw 'Tax list not found in input files!';
+	}
+
+	var purchases = [];
+	var bulletins = [];
+	input.forEach(function(i) {
+		var x = parseCashdeskLog(productList, taxList, i.content);
+		purchases = purchases.concat(x.purchases);
+		bulletins.push(x.bulletin);
 	});
 
-	postMessage(results);
+	var result = [{
+		'name': 'Einkäufe.csv',
+		'content': createPurchasesCsv(productList, taxList, purchases)
+	}, {
+		'name': 'Tagesberichte.csv',
+		'content': createBulletinsCsv(productList, taxList, bulletins)
+	}];
+
+	postMessage(result);
+}
+
+function debug(val) {
+	postMessage([{'name':'test.txt','content':JSON.stringify(val,null,2)}]);
+	throw 'debug';
 }

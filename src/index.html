@@ -24,7 +24,7 @@
 			} else {
 var reformatters = [
 	new Reformatter('Replacer', ['replace', 'with']),
-	new Reformatter('Hoffelner-Cashdesk', [])
+	new Reformatter('Hoffelner-Cashdesk', ['Decimal mark', 'Products filename', 'Taxes filename'])
 ];
 reformatters.forEach(function(r) {
 	reformatters[r.name] = r;
