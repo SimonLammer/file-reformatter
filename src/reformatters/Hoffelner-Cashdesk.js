@@ -43,7 +43,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 		if (summaryStartIndex == -1 && !p.isBulletin) {
 			return false;
 		}
-		p.id = p.lines[0].match(/([^"]*;)+"\s*(#\d+ \d+ \d+)/)[2];
+		p.id = p.lines[0].match(/([^"]*;)+"\s*([^"]+)\s*"/)[2].trim();
 		if (p.isBulletin) {
 			bulletin = p;
 			p.summary = {
