@@ -17,6 +17,7 @@ onmessage = function(e) {
 	progress.getCurrentStage().complete();
 
 	var results = input.map(function(i) {
+		//debug(i); // useful for debugging
 		i.content = i.content.replace(args[0], args[1]);
 		progress.getCurrentStage().getCurrentSubstage().complete();
 		return i;
