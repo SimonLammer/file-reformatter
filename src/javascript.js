@@ -127,11 +127,10 @@ Reformatter.prototype.reformat = function(args) {
 							return tmp + "</li>";
 						}).join('\n') + "</ul>";
 					})(e.data.stages, e.data.completedStages);
-					console.log(html);
 					var $progress = $('#progress');
 					$progress.find('> ul').replaceWith($(html));
 					if (oldProgressTree != null) {
-						oldProgressTree.teardown();
+						//oldProgressTree.teardown();
 					}
 					oldProgressTree = $progress.jstree({
 						"core" : {
