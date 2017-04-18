@@ -60,6 +60,38 @@ $(document).ready(function() {
 			})(i);
 		};
 	});
+
+	// var html = `<ul>
+	// 		<li>1</li>
+	// 		<li data-jstree='{"opened":true, "type":"pending"}'>2</li>
+	// 		<li>3
+	// 			<ul>
+	// 				<li>s1</li>
+	// 				<li>s2</li>
+	// 			</ul>
+	// 		</li>
+	// 	</ul>`;
+	// var $progress = $('#progress');
+	// 			$progress.find('> ul').replaceWith($(html));
+	// 			$progress.jstree({
+	// 				"core" : {
+	// 					"themes" : {
+	// 						"variant" : "large"
+	// 					}
+	// 				},
+	// 				"types" : {
+	// 					"default" : {
+	// 						"icon" : "glyphicon glyphicon-remove"
+	// 					},
+	// 					"pending" : {
+	// 						"icon" : "glyphicon glyphicon-flash"
+	// 					},
+	// 					"complete" : {
+	// 						"icon" : "glyphicon glyphicon-ok"
+	// 					}
+	// 				},
+	// 				"plugins" : [ "types", "wholerow" ]
+	// 			});
 });
 
 function Reformatter(name, argumentNames) {
@@ -70,9 +102,66 @@ function Reformatter(name, argumentNames) {
 Reformatter.prototype.reformat = function(args) {
 	if (this.worker === null) {
 		this.worker = new Worker('reformatters/' + this.name + '.js');
+		var lastProgressUpdateTime = new Date().getTime();
+		var nextProgressUpdateTimeout = null;
+		var progressTimeout = 1000;
+		var oldProgressTree = null;
 		this.worker.onmessage = function(e) {
 			console.log('Reformatter: ', e.data);
-			if (e.data.completedStages == e.data.stages.length) {
+			if (e.data.updateCounter) { // no debug message
+				var updateProgress = function() {
+					console.log("update progress");
+					var html = (function generateHtml(stages, completedStages) {
+						return "<ul>" + stages.map(function(s, i) {
+							var tmp = "<li";
+							if (i < completedStages) {
+								tmp += ` data-jstree='{"type":"complete"}'`;
+							} else if (i == completedStages) {
+								tmp += ` data-jstree='{"opened":true, "type":"pending"}'`;
+							}
+							tmp += ">";
+							tmp += s.name;
+							if (s.substages.length > 0) {
+								tmp += generateHtml(s.substages, s.completedSubstages);
+							}
+							return tmp + "</li>";
+						}).join('\n') + "</ul>";
+					})(e.data.stages, e.data.completedStages);
+					console.log(html);
+					var $progress = $('#progress');
+					$progress.find('> ul').replaceWith($(html));
+					if (oldProgressTree != null) {
+						oldProgressTree.teardown();
+					}
+					oldProgressTree = $progress.jstree({
+						"core" : {
+							"themes" : {
+								"variant" : "large"
+							}
+						},
+						"types" : {
+							"default" : {
+								"icon" : "glyphicon glyphicon-remove"
+							},
+							"pending" : {
+								"icon" : "glyphicon glyphicon-flash"
+							},
+							"complete" : {
+								"icon" : "glyphicon glyphicon-ok"
+							}
+						},
+						"plugins" : [ "types", "wholerow" ]
+					});
+				};
+				clearTimeout(nextProgressUpdateTimeout);
+				if (new Date().getTime() - lastProgressUpdateTime >= progressTimeout) {
+					lastProgressUpdateTime = new Date().getTime();
+					updateProgress();
+				} else {
+					nextProgressUpdateTimeout = setTimeout(updateProgress, progressTimeout);
+				}
+			}
+			if (e.data.completedStages == e.data.stages.length) { // reformatting complete
 				e.data.data.forEach(function(resultFile, i) {
 					downloadStringAsFile(resultFile.name, resultFile.content);
 				});
