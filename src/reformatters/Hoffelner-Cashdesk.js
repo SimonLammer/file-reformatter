@@ -1,6 +1,7 @@
-function parseCashdeskLog(productList, taxList, input) {
+function parseCashdeskLog(progress, productList, taxList, input) {
 	//split input into purchases
 	var purchases = [];
+	progress.setData(purchases);
 	var purchase = null;
 	var lines = input.split('\n');
 	for (var i = 0; i < lines.length; i++) {
@@ -24,6 +25,7 @@ function parseCashdeskLog(productList, taxList, input) {
 			}
 		}
 	}
+	progress.getCurrentStage().getCurrentSubstage().completeSubstage();
 
 	// parse purchase lines
 	var bulletin = null;
@@ -123,6 +125,7 @@ function parseCashdeskLog(productList, taxList, input) {
 		}
 		return p;
 	});
+	progress.getCurrentStage().getCurrentSubstage().completeSubstage();
 
 	// remove invalid purchases
 	purchases = purchases.filter(function(p) {
@@ -141,6 +144,7 @@ function parseCashdeskLog(productList, taxList, input) {
 			purchase.summary.taxes[tax] = parseFloat(purchase.summary.taxes[tax].replace(/,/g, ''));
 		}
 	});
+	progress.getCurrentStage().getCurrentSubstage().completeSubstage();
 
 	// remove bulletin
 	purchases = purchases.filter(function(p) {
@@ -175,6 +179,7 @@ function parseCashdeskLog(productList, taxList, input) {
 			}
 		});
 	});
+	progress.getCurrentStage().getCurrentSubstage().completeSubstage();
 	
 	// combine equal products of purchases
 	var productCombinations = 0;
@@ -192,6 +197,7 @@ function parseCashdeskLog(productList, taxList, input) {
 			}
 		}
 	});
+	progress.getCurrentStage().getCurrentSubstage().completeSubstage();
 
 	// update bulletin product names
 	bulletin.products.forEach(function(product) {
@@ -275,8 +281,29 @@ function readProductList(input) {
 }
 
 onmessage = function(e) {
+	var base = e.data.splice(0, 1)[0];
+	eval(base);
 	var input = e.data.splice(0, 1)[0];
 	var args = e.data;
+
+	var rawStages = [
+		'Started',
+		'Read \'Products file\' and \'Taxes file\'',
+		{
+			'name': 'Parse input files',
+			'stages': input.filter(function(i) {
+				return i.name != args[1] && i.name != args[2];
+			}).map(function(i) {
+				return {
+					'name': 'Parse ' + i.name,
+					'stages': ['Split file into purchases', 'Parse purchases', 'Parse numbers', 'Update product names', 'Combine equal products']
+				}
+			})
+		},
+		'Create csv files'
+	];
+	var progress = new Progress(createStages(rawStages));
+	progress.getCurrentStage().complete();
 
 	var productList = null;
 	var taxList = null;
@@ -296,14 +323,17 @@ onmessage = function(e) {
 	} else if (taxList == null) {
 		throw 'Tax list not found in input files!';
 	}
+	progress.getCurrentStage().complete();
 
 	var purchases = [];
 	var bulletins = [];
 	input.forEach(function(i) {
-		var x = parseCashdeskLog(productList, taxList, i.content);
+		var x = parseCashdeskLog(progress, productList, taxList, i.content);
 		purchases = purchases.concat(x.purchases);
 		bulletins.push(x.bulletin);
 	});
+	progress.setData({'purchases': purchases, 'bulletins': bulletins});
+	progress.getCurrentStage().complete();
 
 	var result = [{
 		'name': 'Einkäufe.csv',
@@ -312,11 +342,6 @@ onmessage = function(e) {
 		'name': 'Tagesberichte.csv',
 		'content': createCsv(productList, taxList, args[0], bulletins)
 	}];
-
-	postMessage(result);
-}
-
-function debug(val) {
-	postMessage([{'name':'test.txt','content':JSON.stringify(val,null,2)}]);
-	throw 'debug';
+	progress.setData(result);
+	progress.getCurrentStage().complete();
 }
