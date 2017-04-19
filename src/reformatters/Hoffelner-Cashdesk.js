@@ -174,7 +174,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 				if (!foundName) {
 					unmatchedProductNames.push(product.name);
 				}
-				product.note = "Productname not found in bulletin";
+				product.note = "Product name not found in bulletin";
 			} else if (possibleProducts.length === 1) {
 				product.name = productList[possibleProducts[0].number].name;
 			} else {
@@ -341,9 +341,7 @@ onmessage = function(e) {
 	var purchases = [];
 	var bulletins = [];
 	input.forEach(function(i) {
-		//try {
 		var x = parseCashdeskLog(progress, productList, taxList, i.content);
-		//} catch(err) { debug([i.name, err]); }
 		purchases = purchases.concat(x.purchases);
 		bulletins.push(x.bulletin);
 		progress.getCurrentStage().completeSubstage();
