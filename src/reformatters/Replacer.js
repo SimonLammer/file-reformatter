@@ -11,9 +11,11 @@ onmessage = function(e) {
 			stages: input.map(function(i) {
 				return 'Reformat ' + i.name;
 			})
-		},
-		'DEBUG 1', 'DEBUG 2'
+		}
 	];
+	for (var i = 0; i < 50; i++) {
+		rawStages.push('DEBUG ' + i);
+	}
 	var progress = new Progress(createStages(rawStages));
 	progress.getCurrentStage().complete();
 
@@ -27,11 +29,10 @@ onmessage = function(e) {
 		progress.setData(results);
 		progress.getCurrentStage().complete();
 
-		setTimeout(function() {
-			progress.getCurrentStage().complete();
-		}, 3000);
-		setTimeout(function() {
-			progress.getCurrentStage().complete();
-		}, 6000);
+		for (var i = 0; i < 50; i++) {
+			setTimeout(function() {
+				progress.getCurrentStage().complete();
+			}, i * 350);
+		}
 	}, 3000);
 }

@@ -92,7 +92,8 @@ $(document).ready(function() {
 	// 				},
 	// 				"plugins" : [ "types", "wholerow" ]
 	// 			});
-	$('#progress').jstree({
+	var $tree = $('#progress');
+	$tree.jstree({
 		"core": {
 			"check_callback" : true,
 			"themes": {
@@ -111,6 +112,14 @@ $(document).ready(function() {
 			}
 		},
 		"plugins": [ "types", "wholerow" ]
+	});
+	$tree.on('refresh.jstree', function () {
+		var $e = $("#progress li[type='pending']");
+		if ($e.length > 0) {
+			$('html, body').animate({
+				scrollTop: $e.offset().top - $e.height() * 2
+			}, 20);
+		}
 	});
 });
 
@@ -139,11 +148,14 @@ Reformatter.prototype.reformat = function(args) {
 							if (index < completedStages) {
 								node.type = 'complete';
 							} else if (index == completedStages) {
-								node.type = 'pending'; 
+								node.type = 'pending';
 								node.state = {
 									'opened': true
 								};
 							}
+							node.li_attr = {
+								'type': node.type	
+							};
 							return node;
 						});
 					})(e.data.stages, e.data.completedStages);
