@@ -60,38 +60,7 @@ $(document).ready(function() {
 			})(i);
 		};
 	});
-
-	// var html = `<ul>
-	// 		<li>1</li>
-	// 		<li data-jstree='{"opened":true, "type":"pending"}'>2</li>
-	// 		<li>3
-	// 			<ul>
-	// 				<li>s1</li>
-	// 				<li>s2</li>
-	// 			</ul>
-	// 		</li>
-	// 	</ul>`;
-	// var $progress = $('#progress');
-	// 			$progress.find('> ul').replaceWith($(html));
-	// 			$progress.jstree({
-	// 				"core" : {
-	// 					"themes" : {
-	// 						"variant" : "large"
-	// 					}
-	// 				},
-	// 				"types" : {
-	// 					"default" : {
-	// 						"icon" : "glyphicon glyphicon-remove"
-	// 					},
-	// 					"pending" : {
-	// 						"icon" : "glyphicon glyphicon-flash"
-	// 					},
-	// 					"complete" : {
-	// 						"icon" : "glyphicon glyphicon-ok"
-	// 					}
-	// 				},
-	// 				"plugins" : [ "types", "wholerow" ]
-	// 			});
+	
 	var $tree = $('#progress');
 	$tree.jstree({
 		"core": {
