@@ -92,6 +92,26 @@ $(document).ready(function() {
 	// 				},
 	// 				"plugins" : [ "types", "wholerow" ]
 	// 			});
+	$('#progress').jstree({
+		"core": {
+			"check_callback" : true,
+			"themes": {
+				"variant": "large"
+			}
+		},
+		"types": {
+			"default": {
+				"icon": "glyphicon glyphicon-remove"
+			},
+			"pending": {
+				"icon": "glyphicon glyphicon-flash"
+			},
+			"complete": {
+				"icon": "glyphicon glyphicon-ok"
+			}
+		},
+		"plugins": [ "types", "wholerow" ]
+	});
 });
 
 function Reformatter(name, argumentNames) {
@@ -128,28 +148,9 @@ Reformatter.prototype.reformat = function(args) {
 						});
 					})(e.data.stages, e.data.completedStages);
 					console.log(data);
-					var $tree = $('#progress').jstree({
-						"core": {
-							'check_callback' : true,
-							"data": data,
-							"themes": {
-								"variant": "large"
-							}
-						},
-						"types": {
-							"default": {
-								"icon": "glyphicon glyphicon-remove"
-							},
-							"pending": {
-								"icon": "glyphicon glyphicon-flash"
-							},
-							"complete": {
-								"icon": "glyphicon glyphicon-ok"
-							}
-						},
-						"plugins": [ "types", "wholerow" ]
-					});
-					$tree.redraw(true);
+					var $tree = $('#progress').jstree(true);
+					$tree.settings.core.data = data;
+					$tree.refresh();
 					lastProgressUpdateTime = new Date().getTime();
 				};
 				clearTimeout(nextProgressUpdateTimeout);
