@@ -102,57 +102,65 @@ function Reformatter(name, argumentNames) {
 Reformatter.prototype.reformat = function(args) {
 	if (this.worker === null) {
 		this.worker = new Worker('reformatters/' + this.name + '.js');
-		var lastProgressUpdateTime = new Date().getTime();
+		var lastProgressUpdateTime = 0;
 		var nextProgressUpdateTimeout = null;
 		var progressTimeout = 1000;
 		var oldProgressTree = null;
 		this.worker.onmessage = function(e) {
 			console.log('Reformatter: ', e.data);
-			if (e.data.updateCounter) { // no debug message
+			if (e.data.updateCounter != undefined) { // no debug message
 				var updateProgress = function() {
-					console.log("update progress");
-					var html = (function generateHtml(stages, completedStages) {
-						return "<ul>" + stages.map(function(s, i) {
-							var tmp = "<li";
-							if (i < completedStages) {
-								tmp += ` data-jstree='{"type":"complete"}'`;
-							} else if (i == completedStages) {
-								tmp += ` data-jstree='{"opened":true, "type":"pending"}'`;
+					var data = (function generateData(stages, completedStages) {
+						return stages.map(function(stage, index) {
+							var node = {
+								'text': stage.name,
+								'children': generateData(stage.substages, stage.completedSubstages)
+							};
+							if (index < completedStages) {
+								node.type = 'complete';
+							} else if (index == completedStages) {
+								node.type = 'pending'; 
+								node.state = {
+									'opened': true
+								};
 							}
-							tmp += ">";
-							tmp += s.name;
-							if (s.substages.length > 0) {
-								tmp += generateHtml(s.substages, s.completedSubstages);
-							}
-							return tmp + "</li>";
-						}).join('\n') + "</ul>";
+							return node;
+						});
 					})(e.data.stages, e.data.completedStages);
-					$('#progress').replaceWith('<div id="progress">' +  html + '</div>');
-					$('#progress').jstree({
-						"core" : {
-							"themes" : {
-								"variant" : "large"
+					console.log(data);
+					var $tree = $('#progress').jstree({
+						"core": {
+							'check_callback' : true,
+							"data": data,
+							"themes": {
+								"variant": "large"
 							}
 						},
-						"types" : {
-							"default" : {
-								"icon" : "glyphicon glyphicon-remove"
+						"types": {
+							"default": {
+								"icon": "glyphicon glyphicon-remove"
 							},
-							"pending" : {
-								"icon" : "glyphicon glyphicon-flash"
+							"pending": {
+								"icon": "glyphicon glyphicon-flash"
 							},
-							"complete" : {
-								"icon" : "glyphicon glyphicon-ok"
+							"complete": {
+								"icon": "glyphicon glyphicon-ok"
 							}
 						},
-						"plugins" : [ "types", "wholerow" ]
+						"plugins": [ "types", "wholerow" ]
 					});
+					$tree.redraw(true);
+					lastProgressUpdateTime = new Date().getTime();
 				};
 				clearTimeout(nextProgressUpdateTimeout);
+				if (nextProgressUpdateTimeout)
+					console.log('Cancel update');
 				if (new Date().getTime() - lastProgressUpdateTime >= progressTimeout) {
+					console.log('Update now');
 					lastProgressUpdateTime = new Date().getTime();
 					updateProgress();
 				} else {
+					console.log('Update later');
 					nextProgressUpdateTimeout = setTimeout(updateProgress, progressTimeout);
 				}
 			}

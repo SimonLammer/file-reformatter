@@ -11,7 +11,8 @@ onmessage = function(e) {
 			stages: input.map(function(i) {
 				return 'Reformat ' + i.name;
 			})
-		}
+		},
+		'DEBUG 1', 'DEBUG 2'
 	];
 	var progress = new Progress(createStages(rawStages));
 	progress.getCurrentStage().complete();
@@ -25,5 +26,12 @@ onmessage = function(e) {
 		});
 		progress.setData(results);
 		progress.getCurrentStage().complete();
-	}, 2000);
+
+		setTimeout(function() {
+			progress.getCurrentStage().complete();
+		}, 3000);
+		setTimeout(function() {
+			progress.getCurrentStage().complete();
+		}, 6000);
+	}, 3000);
 }
