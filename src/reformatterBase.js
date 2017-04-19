@@ -83,11 +83,23 @@ Reformatter.prototype.base = function() { // this code will be executed first in
 		this.update();
 	};
 	function debug(val) {
+		exit([{
+			'name':'debug.json',
+			'content':JSON.stringify(val,null,2)}],
+		'debug');
+	}
+	function error(errorMessage) {
+		exit([{
+			'name':'error.txt',
+			'content': errorMessage}],
+		errorMessage);
+	}
+	function exit(files, throwMessage) {
 		postMessage({
-			'data': [{'name':'debug.json','content':JSON.stringify(val,null,2)}],
+			'data': files,
 			'stages': [],
 			'completedStages': 0
 		});
-		throw 'debug';
+		throw throwMessage;
 	}
 };
