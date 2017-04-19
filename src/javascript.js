@@ -87,7 +87,7 @@ $(document).ready(function() {
 		if ($e.length > 0) {
 			$('html, body').animate({
 				scrollTop: $e.offset().top - $e.height() * 2
-			}, 20);
+			}, 5);
 		}
 	});
 });
@@ -102,7 +102,7 @@ Reformatter.prototype.reformat = function(args) {
 		this.worker = new Worker('reformatters/' + this.name + '.js');
 		var lastProgressUpdateTime = 0;
 		var nextProgressUpdateTimeout = null;
-		var progressTimeout = 1000;
+		var progressTimeout = 2500;
 		var oldProgressTree = null;
 		this.worker.onmessage = function(e) {
 			console.log('Reformatter: ', e.data);
