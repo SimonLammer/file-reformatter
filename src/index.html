@@ -2,6 +2,8 @@
 <html>
 	<head>
 		<title>File reformatter</title>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
 	</head>
 	<body>
 		<div id="inputs">
@@ -14,13 +16,23 @@
 			</div>
 			<button id="submit" disabled="disabled">Reformat</button>
 		</div>
+		<h1>Progress:</h1>
+		<div id="progress">
+			<ul>
+				<!-- content will be generated via javascript -->
+			</ul>
+		</div>
 		<script
 			src="https://code.jquery.com/jquery-3.2.1.min.js"
 			integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
 			crossorigin="anonymous"></script>
-		<script type="text/javascript"
+		<script 
+			src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+		<script 
+			src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+		<script
 			src="javascript.js"></script>
-		<script type="text/javascript"
+		<script
 			src="reformatterBase.js"></script>
 	</body>
 </html>

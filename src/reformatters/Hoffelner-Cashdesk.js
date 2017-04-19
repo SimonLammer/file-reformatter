@@ -43,7 +43,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 		if (summaryStartIndex == -1 && !p.isBulletin) {
 			return false;
 		}
-		p.id = p.lines[0].match(/([^"]*;)+"\s*(#\d+ \d+ \d+)/)[2];
+		p.id = p.lines[0].match(/([^"]*;)+"\s*([^"]+)\s*"/)[2].trim();
 		if (p.isBulletin) {
 			bulletin = p;
 			p.summary = {
@@ -152,6 +152,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 	});
 
 	// update product names of purchases
+	var unmatchedProductNames = [];
 	purchases.forEach(function(purchase) {
 		purchase.products.forEach(function(product) {
 			var possibleProducts = [];
@@ -161,7 +162,19 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 				}
 			});
 			if (possibleProducts.length === 0) {
-				throw 'No product name matched "' + product.name + '"!';
+				//throw 'No product name matched "' + product.name + '"!';
+				var foundName = false;
+				for (var i = 0; i < unmatchedProductNames.length; i++) {
+					if (unmatchedProductNames[i].indexOf(product.name) > -1 || product.name.indexOf(unmatchedProductNames[i])) {
+						product.name = unmatchedProductNames[i];
+						foundName = true;
+						break;
+					}
+				}
+				if (!foundName) {
+					unmatchedProductNames.push(product.name);
+				}
+				product.note = "Product name not found in bulletin";
 			} else if (possibleProducts.length === 1) {
 				product.name = productList[possibleProducts[0].number].name;
 			} else {
@@ -211,7 +224,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 }
 
 function parseProductLine(line) {
-	var match = line.match(/([^"]*;)+"(-?\d+(\.\d+)?)\s+(.*?)\s+(-?\d+\.\d+)/);
+	var match = line.match(/([^"]*;)+"(-?\d*(\.\d+)?)\s+(.*?)\s+(-?\d+\.\d+)/);
 	if (match) {
 		return {
 			'quantity': match[2],
@@ -331,6 +344,7 @@ onmessage = function(e) {
 		var x = parseCashdeskLog(progress, productList, taxList, i.content);
 		purchases = purchases.concat(x.purchases);
 		bulletins.push(x.bulletin);
+		progress.getCurrentStage().completeSubstage();
 	});
 	progress.setData({'purchases': purchases, 'bulletins': bulletins});
 	progress.getCurrentStage().complete();

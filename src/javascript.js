@@ -60,6 +60,36 @@ $(document).ready(function() {
 			})(i);
 		};
 	});
+
+	var $tree = $('#progress');
+	$tree.jstree({
+		"core": {
+			"check_callback" : true,
+			"themes": {
+				"variant": "large"
+			}
+		},
+		"types": {
+			"default": {
+				"icon": "glyphicon glyphicon-remove"
+			},
+			"pending": {
+				"icon": "glyphicon glyphicon-flash"
+			},
+			"complete": {
+				"icon": "glyphicon glyphicon-ok"
+			}
+		},
+		"plugins": [ "types", "wholerow" ]
+	});
+	$tree.on('refresh.jstree', function () {
+		var $e = $("#progress li[type='pending']");
+		if ($e.length > 0) {
+			$('html, body').animate({
+				scrollTop: $e.offset().top - $e.height() * 2
+			}, 5);
+		}
+	});
 });
 
 function Reformatter(name, argumentNames) {
@@ -70,9 +100,48 @@ function Reformatter(name, argumentNames) {
 Reformatter.prototype.reformat = function(args) {
 	if (this.worker === null) {
 		this.worker = new Worker('reformatters/' + this.name + '.js');
+		var lastProgressUpdateTime = 0;
+		var nextProgressUpdateTimeout = null;
+		var progressTimeout = 2500;
+		var oldProgressTree = null;
 		this.worker.onmessage = function(e) {
 			console.log('Reformatter: ', e.data);
-			if (e.data.completedStages == e.data.stages.length) {
+			if (e.data.updateCounter != undefined) { // no debug message
+				var updateProgress = function() {
+					var data = (function generateData(stages, completedStages) {
+						return stages.map(function(stage, index) {
+							var node = {
+								'text': stage.name,
+								'children': generateData(stage.substages, stage.completedSubstages)
+							};
+							if (index < completedStages) {
+								node.type = 'complete';
+							} else if (index == completedStages) {
+								node.type = 'pending';
+								node.state = {
+									'opened': true
+								};
+							}
+							node.li_attr = {
+								'type': node.type	
+							};
+							return node;
+						});
+					})(e.data.stages, e.data.completedStages);
+					var $tree = $('#progress').jstree(true);
+					$tree.settings.core.data = data;
+					$tree.refresh();
+					lastProgressUpdateTime = new Date().getTime();
+				};
+				clearTimeout(nextProgressUpdateTimeout);
+				if (new Date().getTime() - lastProgressUpdateTime >= progressTimeout) {
+					lastProgressUpdateTime = new Date().getTime();
+					updateProgress();
+				} else {
+					nextProgressUpdateTimeout = setTimeout(updateProgress, progressTimeout);
+				}
+			}
+			if (e.data.completedStages == e.data.stages.length) { // reformatting complete
 				e.data.data.forEach(function(resultFile, i) {
 					downloadStringAsFile(resultFile.name, resultFile.content);
 				});
