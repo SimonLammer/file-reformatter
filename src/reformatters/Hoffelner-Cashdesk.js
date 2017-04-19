@@ -1,3 +1,70 @@
+onmessage = function(e) {
+	var base = e.data.splice(0, 1)[0];
+	eval(base);
+	var input = e.data.splice(0, 1)[0];
+	var args = e.data;
+
+	var rawStages = [
+		'Started',
+		'Read \'Products file\' and \'Taxes file\'',
+		{
+			'name': 'Parse input files',
+			'stages': input.filter(function(i) {
+				return i.name != args[1] && i.name != args[2];
+			}).map(function(i) {
+				return {
+					'name': 'Parse ' + i.name,
+					'stages': ['Split file into purchases', 'Parse purchases', 'Parse numbers', 'Update product names', 'Combine equal products']
+				}
+			})
+		},
+		'Create csv files'
+	];
+	var progress = new Progress(createStages(rawStages));
+	progress.getCurrentStage().complete();
+
+	var productList = null;
+	var taxList = null;
+	for (var i = 0; i < input.length && (productList == null || taxList == null); i++) {
+		if (input[i].name == args[1]) { // i is product-list
+			productList = input.splice(i, 1)[0];
+			productList = readProductList(productList.content);
+			i--;
+		} else if (input[i].name == args[2]) { // i is tax-list
+			taxList = input.splice(i, 1)[0];
+			taxList = taxList.content.split(';');
+			i--;
+		}
+	}
+	if (productList == null) {
+		throw 'Product list not found in input files!';
+	} else if (taxList == null) {
+		throw 'Tax list not found in input files!';
+	}
+	progress.getCurrentStage().complete();
+
+	var purchases = [];
+	var bulletins = [];
+	input.forEach(function(i) {
+		var x = parseCashdeskLog(progress, productList, taxList, i.content);
+		purchases = purchases.concat(x.purchases);
+		bulletins.push(x.bulletin);
+		progress.getCurrentStage().completeSubstage();
+	});
+	progress.setData({'purchases': purchases, 'bulletins': bulletins});
+	progress.getCurrentStage().complete();
+
+	var result = [{
+		'name': 'Einkäufe.csv',
+		'content': createCsv(productList, taxList, args[0], purchases)
+	}, {
+		'name': 'Tagesberichte.csv',
+		'content': createCsv(productList, taxList, args[0], bulletins)
+	}];
+	progress.setData(result);
+	progress.getCurrentStage().complete();
+}
+
 function parseCashdeskLog(progress, productList, taxList, input) {
 	//split input into purchases
 	var purchases = [];
@@ -291,71 +358,4 @@ function readProductList(input) {
 		productList[product.number] = product;
 	}
 	return productList;
-}
-
-onmessage = function(e) {
-	var base = e.data.splice(0, 1)[0];
-	eval(base);
-	var input = e.data.splice(0, 1)[0];
-	var args = e.data;
-
-	var rawStages = [
-		'Started',
-		'Read \'Products file\' and \'Taxes file\'',
-		{
-			'name': 'Parse input files',
-			'stages': input.filter(function(i) {
-				return i.name != args[1] && i.name != args[2];
-			}).map(function(i) {
-				return {
-					'name': 'Parse ' + i.name,
-					'stages': ['Split file into purchases', 'Parse purchases', 'Parse numbers', 'Update product names', 'Combine equal products']
-				}
-			})
-		},
-		'Create csv files'
-	];
-	var progress = new Progress(createStages(rawStages));
-	progress.getCurrentStage().complete();
-
-	var productList = null;
-	var taxList = null;
-	for (var i = 0; i < input.length && (productList == null || taxList == null); i++) {
-		if (input[i].name == args[1]) { // i is product-list
-			productList = input.splice(i, 1)[0];
-			productList = readProductList(productList.content);
-			i--;
-		} else if (input[i].name == args[2]) { // i is tax-list
-			taxList = input.splice(i, 1)[0];
-			taxList = taxList.content.split(';');
-			i--;
-		}
-	}
-	if (productList == null) {
-		throw 'Product list not found in input files!';
-	} else if (taxList == null) {
-		throw 'Tax list not found in input files!';
-	}
-	progress.getCurrentStage().complete();
-
-	var purchases = [];
-	var bulletins = [];
-	input.forEach(function(i) {
-		var x = parseCashdeskLog(progress, productList, taxList, i.content);
-		purchases = purchases.concat(x.purchases);
-		bulletins.push(x.bulletin);
-		progress.getCurrentStage().completeSubstage();
-	});
-	progress.setData({'purchases': purchases, 'bulletins': bulletins});
-	progress.getCurrentStage().complete();
-
-	var result = [{
-		'name': 'Einkäufe.csv',
-		'content': createCsv(productList, taxList, args[0], purchases)
-	}, {
-		'name': 'Tagesberichte.csv',
-		'content': createCsv(productList, taxList, args[0], bulletins)
-	}];
-	progress.setData(result);
-	progress.getCurrentStage().complete();
 }
