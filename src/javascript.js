@@ -60,7 +60,7 @@ $(document).ready(function() {
 			})(i);
 		};
 	});
-	
+
 	var $tree = $('#progress');
 	$tree.jstree({
 		"core": {
@@ -128,21 +128,16 @@ Reformatter.prototype.reformat = function(args) {
 							return node;
 						});
 					})(e.data.stages, e.data.completedStages);
-					console.log(data);
 					var $tree = $('#progress').jstree(true);
 					$tree.settings.core.data = data;
 					$tree.refresh();
 					lastProgressUpdateTime = new Date().getTime();
 				};
 				clearTimeout(nextProgressUpdateTimeout);
-				if (nextProgressUpdateTimeout)
-					console.log('Cancel update');
 				if (new Date().getTime() - lastProgressUpdateTime >= progressTimeout) {
-					console.log('Update now');
 					lastProgressUpdateTime = new Date().getTime();
 					updateProgress();
 				} else {
-					console.log('Update later');
 					nextProgressUpdateTimeout = setTimeout(updateProgress, progressTimeout);
 				}
 			}
