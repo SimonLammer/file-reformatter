@@ -152,6 +152,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 	});
 
 	// update product names of purchases
+	var unmatchedProductNames = [];
 	purchases.forEach(function(purchase) {
 		purchase.products.forEach(function(product) {
 			var possibleProducts = [];
@@ -161,7 +162,13 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 				}
 			});
 			if (possibleProducts.length === 0) {
-				throw 'No product name matched "' + product.name + '"!';
+				//throw 'No product name matched "' + product.name + '"!';
+				for (var i = 0; i < unmatchedProductNames.length; i++) {
+					if (unmatchedProductNames[i].indexOf(product.name) > -1 || product.name.indexOf(unmatchedProductNames[i])) {
+						product.name = unmatchedProducts[i].name;
+						break;
+					}
+				}
 			} else if (possibleProducts.length === 1) {
 				product.name = productList[possibleProducts[0].number].name;
 			} else {
