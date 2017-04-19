@@ -346,6 +346,7 @@ onmessage = function(e) {
 		//} catch(err) { debug([i.name, err]); }
 		purchases = purchases.concat(x.purchases);
 		bulletins.push(x.bulletin);
+		progress.getCurrentStage().completeSubstage();
 	});
 	progress.setData({'purchases': purchases, 'bulletins': bulletins});
 	progress.getCurrentStage().complete();
