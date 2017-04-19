@@ -166,14 +166,15 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 				var foundName = false;
 				for (var i = 0; i < unmatchedProductNames.length; i++) {
 					if (unmatchedProductNames[i].indexOf(product.name) > -1 || product.name.indexOf(unmatchedProductNames[i])) {
-						product.name = unmatchedProducts[i].name;
+						product.name = unmatchedProductNames[i];
 						foundName = true;
 						break;
 					}
 				}
 				if (!foundName) {
-					unmatchedProductNames.push(foundName);
+					unmatchedProductNames.push(product.name);
 				}
+				product.note = "Productname not found in bulletin";
 			} else if (possibleProducts.length === 1) {
 				product.name = productList[possibleProducts[0].number].name;
 			} else {
@@ -340,9 +341,9 @@ onmessage = function(e) {
 	var purchases = [];
 	var bulletins = [];
 	input.forEach(function(i) {
-		try {
+		//try {
 		var x = parseCashdeskLog(progress, productList, taxList, i.content);
-		} catch(err) { debug([err, i]); }
+		//} catch(err) { debug([i.name, err]); }
 		purchases = purchases.concat(x.purchases);
 		bulletins.push(x.bulletin);
 	});
