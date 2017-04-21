@@ -4,35 +4,29 @@ onmessage = function(e) {
 	var input = e.data.splice(0, 1)[0];
 	var args = e.data;
 
+	var oldPattern = args[0];
+	var newPattern = args[1];
+
 	var rawStages = [
 		'Started',
 		{
 			name: 'Reformat input files',
-			stages: input.map(function(i) {
-				return 'Reformat ' + i.name;
+			stages: input.map(function(inputFile) {
+				return 'Reformat ' + inputFile.name;
 			})
 		}
 	];
-	for (var i = 0; i < 50; i++) {
-		rawStages.push('DEBUG ' + i);
-	}
 	var progress = new Progress(createStages(rawStages));
-	progress.getCurrentStage().complete();
+	progress.getCurrentStage().complete(); // complete stage 'Started'
 
-	setTimeout(function() {
-		var results = input.map(function(i) {
-			//debug(i); // useful for debugging
-			i.content = i.content.replace(args[0], args[1]);
-			progress.getCurrentStage().getCurrentSubstage().complete();
-			return i;
-		});
-		progress.setData(results);
-		progress.getCurrentStage().complete();
-
-		for (var i = 0; i < 50; i++) {
-			setTimeout(function() {
-				progress.getCurrentStage().complete();
-			}, i * 350);
+	var results = input.map(function(inputFile) {
+		if (inputFile.content.indexOf(oldPattern) === -1) {
+			error('Pattern "' + oldPattern + '" not found in ' + inputFile.name);
 		}
-	}, 3000);
+		inputFile.content = inputFile.content.replace(oldPattern, newPattern);
+		progress.getCurrentStage().getCurrentSubstage().complete();
+		return inputFile;
+	});
+	progress.setData(results);
+	progress.getCurrentStage().complete(); // complete stage 'Reformat input fies'
 }

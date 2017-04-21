@@ -2,7 +2,7 @@ if (!window.Worker) {
 	alert('This website can not be used, because your browser does not support the Worker api!');
 }
 var reformatters = [
-	new Reformatter('Replacer', ['replace', 'with']),
+	new Reformatter('Replacer', ['old pattern', 'new pattern']),
 	new Reformatter('Hoffelner-Cashdesk', ['Decimal mark', 'Products filename', 'Taxes filename'])
 ];
 reformatters.forEach(function(r) {
