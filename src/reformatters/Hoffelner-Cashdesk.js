@@ -1,3 +1,97 @@
+onmessage = function(e) {
+	var base = e.data.splice(0, 1)[0];
+	eval(base);
+	var input = e.data.splice(0, 1)[0];
+	var args = e.data;
+
+	var productListFilename = args[1];
+	var taxesListFilename = args[2];
+
+	var rawStages = [
+		'Started',
+		'Read \'Products file\' and \'Taxes file\'',
+		{
+			'name': 'Parse input files',
+			'stages': input.filter(function(i) {
+				return i.name != productListFilename && i.name != taxesListFilename;
+			}).map(function(i) {
+				return {
+					'name': 'Parse ' + i.name,
+					'stages': ['Split file into purchases', 'Parse purchases', 'Parse numbers', 'Update product names', 'Combine equal products']
+				}
+			})
+		},
+		'Create csv files'
+	];
+	var progress = new Progress(createStages(rawStages));
+	progress.getCurrentStage().complete();
+
+	progress.setData(readAndRemoveProductsListAndTaxesList(progress, input, productListFilename, taxesListFilename));
+	var productList = progress.data.productList;
+	var taxList = progress.data.taxList;
+	if (productList == null) {
+		error('Product list not found in input files!');
+	} else if (taxList == null) {
+		error('Tax list not found in input files!');
+	}
+	progress.getCurrentStage().complete();
+
+	var purchases = [];
+	var bulletins = [];
+	input.forEach(function(i) {
+		try {
+			parseCashdeskLog(progress, productList, taxList, i.content);
+		} catch(err) {
+			error('Error in "' + i.name + '": \n' + err);
+		}
+		purchases = purchases.concat(progress.data.purchases);
+		bulletins.push(progress.data.bulletin);
+		progress.getCurrentStage().completeSubstage();
+	});
+	progress.setData({'purchases': purchases, 'bulletins': bulletins});
+	progress.getCurrentStage().complete();
+
+	var result = [{
+		'name': 'Einkäufe.csv',
+		'content': createCsv(productList, taxList, args[0], purchases)
+	}, {
+		'name': 'Tagesberichte.csv',
+		'content': createCsv(productList, taxList, args[0], bulletins)
+	}];
+	progress.setData(result);
+	progress.getCurrentStage().complete();
+}
+
+function readAndRemoveProductsListAndTaxesList(progress, input, productsListFilename, taxesListFilename) {
+	var lists = {};
+	for (var i = 0; i < input.length && (lists.productList == undefined || lists.taxList == undefined); i++) {
+		if (input[i].name == productsListFilename) { // i is product-list
+			lists.productList = input.splice(i, 1)[0];
+			lists.productList = readProductList(lists.productList.content);
+			i--;
+		} else if (input[i].name == taxesListFilename) { // i is tax-list
+			lists.taxList = input.splice(i, 1)[0];
+			lists.taxList = lists.taxList.content.split(';');
+			i--;
+		}
+	}
+	return lists;
+}
+
+function readProductList(input) {
+	var lines = input.split('\n');
+	var productList = [];
+	for (var i = 1; i < lines.length; i++) {
+		var spl = lines[i].split(';');
+		var product = {
+			'number': parseFloat(spl[0].trim()),
+			'name': spl[1].trim()
+		};
+		productList[product.number] = product;
+	}
+	return productList;
+}
+
 function parseCashdeskLog(progress, productList, taxList, input) {
 	//split input into purchases
 	var purchases = [];
@@ -28,6 +122,19 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 	progress.getCurrentStage().getCurrentSubstage().completeSubstage();
 
 	// parse purchase lines
+	var parseProductLine = function (line) {
+		var match = line.match(/([^"]*;)+"(-?\d*(\.\d+)?)\s+(.*?)\s+(-?\d+\.\d+)/);
+		if (match) {
+			return {
+				'quantity': match[2],
+				'name': match[4],
+				'price': match[5],
+				'note': ''
+			};
+		} else {
+			return false;
+		}
+	}
 	var bulletin = null;
 	purchases = purchases.map(function(p) {
 		var summaryStartIndex = -1;
@@ -59,7 +166,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 				throw 'Bulletin not parsable: ' + JSON.stringify(p, null, 2);
 			}
 			
-			// parse products
+			// parse bulletin products
 			p.products = [];
 			var taxesStartIndex = -1;
 			for (var i = 8; i < p.lines.length; i++) {
@@ -70,11 +177,23 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 			}
 			for (var i = 8; i < taxesStartIndex; i+=4) {
 				var product = {
-					'id': p.lines[i].match(/([^"]*;)+"\s*(#\d+)/)[2],
-					'name': p.lines[i+1].match(/([^"]*;)+"\s*([^"]*?)\s*"/)[2],
-					'quantity': p.lines[i+2].match(/([^"]*;)+"\s*A[^ ]+ +([^"]*)"/)[2],
-					'price': p.lines[i+3].match(/([^"]*;)+"\s*B[^ ]+ +([^"]*)"/)[2]
+					'id': p.lines[i].match(/([^"]*;)+"\s*(#\d+)/),
+					'name': p.lines[i+1].match(/([^"]*;)+"\s*([^"]*?)\s*"/),
+					'quantity': p.lines[i+2].match(/([^"]*;)+"\s*A[^ ]+ +([^"]*)"/),
+					'price': p.lines[i+3].match(/([^"]*;)+"\s*B[^ ]+ +([^"]*)"/)
 				};
+				if (product.id && product.name && product.quantity && product.price) {
+					product.id = product.id[2];
+					product.name = product.name[2];
+					product.quantity = product.quantity[2];
+					product.price = product.price[2];
+				} else {
+					throw 'Product of bulletin not parsable: ' + JSON.stringify({
+						'purchase': p, 
+						'lines': p.lines.slice(i, i + 4),
+						'product': product
+					}, null, 2);
+				}
 				product.number = parseInt(product.id.substr(1));
 				p.products.push(product);
 			}
@@ -87,7 +206,13 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 			}
 			p.summary.taxes = {};
 			for (var i = taxesStartIndex + 1; i < paymentMethodsStartIndex; i+=4) {
-				p.summary.taxes[p.lines[i].match(/([^"]*;)+"\s*MwSt\s*([^"]*?)\s*"/)[2]] = p.lines[i+3].match(/([^"]*;)+"\s*MwSt\s*([^"]*)"/)[2];
+				var taxName = p.lines[i].match(/([^"]*;)+"\s*MwSt\s*([^"]*?)\s*"/);
+				var taxValue = p.lines[i+3].match(/([^"]*;)+"\s*MwSt\s*([^"]*)"/);
+				if (taxName && taxValue) {
+					p.summary.taxes[taxName[2]] = taxValue[2];
+				} else {
+					throw 'Taxes of bulletin not parsable: ' + JSON.stringify(p, null, 2);
+				}
 			}
 		} else {
 			p.products = [];
@@ -111,7 +236,7 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 				}
 			}	
 			
-			// parse summary
+			// parse product summary
 			p.summary = parseProductLine(p.lines[summaryStartIndex]);
 			delete p.summary.name;
 			delete p.summary.note;
@@ -217,24 +342,10 @@ function parseCashdeskLog(progress, productList, taxList, input) {
 		product.name = productList[product.number].name;
 	});
 	
-	return {
+	progress.setData({
 		'bulletin': bulletin,
 		'purchases': purchases
-	};
-}
-
-function parseProductLine(line) {
-	var match = line.match(/([^"]*;)+"(-?\d*(\.\d+)?)\s+(.*?)\s+(-?\d+\.\d+)/);
-	if (match) {
-		return {
-			'quantity': match[2],
-			'name': match[4],
-			'price': match[5],
-			'note': ''
-		};
-	} else {
-		return false;
-	}
+	});
 }
 
 function createCsvHeader(productList, taxList) {
@@ -277,85 +388,4 @@ function createCsv(productList, taxList, decimalMark, items) {
 		}
 	});
 	return createCsvHeader(productList, taxList) + csv.replace(/\./g, decimalMark);
-}
-
-function readProductList(input) {
-	var lines = input.split('\n');
-	var productList = [];
-	for (var i = 1; i < lines.length; i++) {
-		var spl = lines[i].split(';');
-		var product = {
-			'number': parseFloat(spl[0].trim()),
-			'name': spl[1].trim()
-		};
-		productList[product.number] = product;
-	}
-	return productList;
-}
-
-onmessage = function(e) {
-	var base = e.data.splice(0, 1)[0];
-	eval(base);
-	var input = e.data.splice(0, 1)[0];
-	var args = e.data;
-
-	var rawStages = [
-		'Started',
-		'Read \'Products file\' and \'Taxes file\'',
-		{
-			'name': 'Parse input files',
-			'stages': input.filter(function(i) {
-				return i.name != args[1] && i.name != args[2];
-			}).map(function(i) {
-				return {
-					'name': 'Parse ' + i.name,
-					'stages': ['Split file into purchases', 'Parse purchases', 'Parse numbers', 'Update product names', 'Combine equal products']
-				}
-			})
-		},
-		'Create csv files'
-	];
-	var progress = new Progress(createStages(rawStages));
-	progress.getCurrentStage().complete();
-
-	var productList = null;
-	var taxList = null;
-	for (var i = 0; i < input.length && (productList == null || taxList == null); i++) {
-		if (input[i].name == args[1]) { // i is product-list
-			productList = input.splice(i, 1)[0];
-			productList = readProductList(productList.content);
-			i--;
-		} else if (input[i].name == args[2]) { // i is tax-list
-			taxList = input.splice(i, 1)[0];
-			taxList = taxList.content.split(';');
-			i--;
-		}
-	}
-	if (productList == null) {
-		throw 'Product list not found in input files!';
-	} else if (taxList == null) {
-		throw 'Tax list not found in input files!';
-	}
-	progress.getCurrentStage().complete();
-
-	var purchases = [];
-	var bulletins = [];
-	input.forEach(function(i) {
-		var x = parseCashdeskLog(progress, productList, taxList, i.content);
-		purchases = purchases.concat(x.purchases);
-		bulletins.push(x.bulletin);
-		progress.getCurrentStage().completeSubstage();
-	});
-	progress.setData({'purchases': purchases, 'bulletins': bulletins});
-	progress.getCurrentStage().complete();
-
-	var result = [{
-		'name': 'Einkäufe.csv',
-		'content': createCsv(productList, taxList, args[0], purchases)
-	}, {
-		'name': 'Tagesberichte.csv',
-		'content': createCsv(productList, taxList, args[0], bulletins)
-	}];
-	progress.setData(result);
-	progress.getCurrentStage().complete();
 }
