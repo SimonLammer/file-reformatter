@@ -83,7 +83,7 @@ $(document).ready(function() {
 		"plugins": [ "types", "wholerow" ]
 	});
 	$tree.on('refresh.jstree', function () {
-		var $e = $("#progress li[type='pending']");
+		var $e = $("#progress li[type='pending']:last");
 		if ($e.length > 0) {
 			$('html, body').animate({
 				scrollTop: $e.offset().top - $e.height() * 2
@@ -112,15 +112,16 @@ Reformatter.prototype.reformat = function(args) {
 						return stages.map(function(stage, index) {
 							var node = {
 								'text': stage.name,
-								'children': generateData(stage.substages, stage.completedSubstages)
+								'children': generateData(stage.substages, stage.completedSubstages),
+								'state': {
+									'opened': false
+								}
 							};
 							if (index < completedStages) {
 								node.type = 'complete';
 							} else if (index == completedStages) {
 								node.type = 'pending';
-								node.state = {
-									'opened': true
-								};
+								node.state.opened = true;
 							}
 							node.li_attr = {
 								'type': node.type	
